@@ -56,7 +56,7 @@ if (!empty($contactsUpdate)) {
 }
 
 /**
- * Функиця добавления примечания.
+ * Функция добавления примечания.
  */
 function addNote(array $entity, &$provider, $accessToken, $eventType, $logFile, string $entityType): void
 {
@@ -104,12 +104,33 @@ function addNote(array $entity, &$provider, $accessToken, $eventType, $logFile, 
         $text = "{$label} {$verbUpdate}\n";;
         $text .= "Измененные поля:\n";
 
-        // Исключение системных полей
-        $excludeFields = ['id', 'account_id', 'updated_at', 'created_at'];
-        foreach ($entity as $field => $value) {
-            if (in_array($field, $excludeFields)) continue;
-            $text .= "- $field: $value\n";
+        // Отправление запроса в API для получения изменений данных по событию сущности
+        try {
+            $data = $provider->getHttpClient()
+                ->request('GET', $provider->urlAccount() . "api/v4/events?filter[entity_id][]={$leadId}&filter[entity]={$entityType}", [
+                    'headers' => $provider->getHeaders($accessToken),
+                ]);
+
+            $statusCode = $data->getStatusCode();
+            $responseBody = json_decode($data->getBody()->getContents(), true);
+            $inputArray = $responseBody['_embedded']['events'][0]['value_after'][0];
+
+            foreach ($inputArray as $mainKey => $subArray) {
+                foreach ($subArray as $key => $value) {
+                    $text .="$mainKey - $key : $value\n";
+                }
+            }
+
+            if ($statusCode >= 200 && $statusCode < 300) {
+                file_put_contents($logFile, "Изменённые данные успешно получены для сделки/контакта по ID: $leadId\n", FILE_APPEND);
+            } else {
+                file_put_contents($logFile, "Ошибка при получении измененных данных: $responseBody\n", FILE_APPEND);
+            }
+
+        } catch (Exception $e) {
+            file_put_contents($logFile, "API Exception: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
         }
+
         $text .= "Дата изменения: $formattedTime";
     }
 
