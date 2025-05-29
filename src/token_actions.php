@@ -1,5 +1,6 @@
 <?php
 
+use League\OAuth2\Client\Grant\RefreshToken;
 use League\OAuth2\Client\Token\AccessToken;
 
 define('TOKEN_FILE','tmp' . DIRECTORY_SEPARATOR . 'token_info.json');
@@ -56,4 +57,29 @@ function getToken()
     } else {
         exit('Invalid access token ' . var_export($accessToken, true));
     }
+}
+
+function getValidAccessToken($provider, $logFile) {
+    $accessToken = getToken();
+    $provider->setBaseDomain($accessToken->getValues()['baseDomain']);
+
+    if ($accessToken->hasExpired()) {
+        try {
+            $accessToken = $provider->getAccessToken(new RefreshToken(), [
+                'refresh_token' => $accessToken->getRefreshToken(),
+            ]);
+
+            saveToken([
+                'accessToken' => $accessToken->getToken(),
+                'refreshToken' => $accessToken->getRefreshToken(),
+                'expires' => $accessToken->getExpires(),
+                'baseDomain' => $provider->getBaseDomain(),
+            ]);
+
+        } catch (Exception $e) {
+            file_put_contents($logFile, "Exception: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+        }
+    }
+
+    return $accessToken;
 }

@@ -12,8 +12,7 @@ $provider = new AmoCRM([
     'redirectUri' => $redirectUri,
 ]);
 
-$accessToken = getToken();
-$provider->setBaseDomain($accessToken->getValues()['baseDomain']);
+$accessToken = getValidAccessToken($provider, $logFile);
 
 $rawInput = file_get_contents('php://input');
 parse_str($rawInput, $input);
